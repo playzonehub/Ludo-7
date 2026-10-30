@@ -1,0 +1,561 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlayZoneHub - 3D Ludo</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;background:#101827;color:white;
+  font-family:Arial,sans-serif;text-align:center;
+}
+header{padding:14px 8px;background:#17243a}
+header h1{margin:0;color:#ffd34e;font-size:25px}
+header p{margin:5px 0 0;color:#bdc9dc;font-size:13px}
+.controls{
+  display:flex;justify-content:center;align-items:center;
+  flex-wrap:wrap;gap:9px;padding:12px;
+}
+select,button{
+  border:0;border-radius:9px;padding:10px 13px;
+  font-weight:bold;font-size:14px;
+}
+select{background:#263750;color:white}
+button{background:#ffca45;color:#202020;cursor:pointer}
+button:active{transform:scale(.96)}
+#status{
+  margin:4px auto 10px;padding:10px 14px;
+  max-width:650px;background:#1c2d46;border-radius:10px;
+  color:#fff;font-weight:bold;min-height:39px;
+}
+.game-layout{
+  width:min(100%,850px);margin:auto;padding:8px;
+  display:grid;grid-template-columns:1fr 1fr;
+  grid-template-areas:"red green" "board board" "blue yellow";
+  gap:9px;
+}
+.dice-box{
+  min-height:86px;border:3px solid var(--c);
+  background:linear-gradient(145deg,var(--light),var(--dark));
+  border-radius:14px;padding:8px;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;box-shadow:0 5px 12px #0007;
+  cursor:pointer;position:relative;overflow:hidden;
+}
+.dice-box.active{
+  outline:3px solid #fff;
+  box-shadow:0 0 18px var(--c),0 5px 12px #0008;
+  transform:scale(1.015);
+}
+.dice-box.disabled{opacity:.68;cursor:not-allowed}
+.dice-box .player-info{text-align:left;min-width:0}
+.player-name{font-size:14px;font-weight:900}
+.player-sub{font-size:11px;margin-top:4px;color:#fff}
+.dice{
+  width:48px;height:48px;flex-shrink:0;
+  border-radius:11px;background:linear-gradient(145deg,#fff,#d9e0e8);
+  color:#172033;display:grid;place-items:center;
+  font-size:30px;font-weight:bold;
+  box-shadow:inset -4px -5px 8px #8792a0,
+             inset 3px 3px 6px white,0 5px 7px #0006;
+  transform:rotate(-7deg);
+}
+.dice.rolling{animation:roll .55s ease}
+@keyframes roll{
+  0%{transform:rotate(0) scale(1)}
+  30%{transform:rotate(130deg) scale(1.15)}
+  65%{transform:rotate(260deg) scale(.9)}
+  100%{transform:rotate(353deg) scale(1)}
+}
+#board-wrap{
+  grid-area:board;background:#d9e1ec;border-radius:15px;
+  padding:5px;box-shadow:0 8px 20px #0008;
+  width:100%;max-width:700px;margin:auto;
+}
+canvas{
+  display:block;width:100%;height:auto;border-radius:10px;
+  touch-action:manipulation;
+}
+#red-box{grid-area:red;--c:#ef3434;--light:#ed5555;--dark:#a91414}
+#green-box{grid-area:green;--c:#19bd68;--light:#36dc87;--dark:#087b3e}
+#blue-box{grid-area:blue;--c:#278bff;--light:#4ca7ff;--dark:#1255a6}
+#yellow-box{grid-area:yellow;--c:#ffca27;--light:#ffdf60;--dark:#bd8500}
+.bottom{
+  max-width:700px;margin:10px auto;padding:10px;
+  display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+}
+.bottom button{background:#263d5d;color:white}
+.bottom button.primary{background:#ffca45;color:#222}
+#message{font-size:13px;color:#c6d2e4;padding:8px}
+.legend{font-size:12px;color:#aebed4;padding:5px}
+@media(max-width:420px){
+  .game-layout{gap:6px;padding:5px}
+  .dice-box{min-height:72px;padding:6px;border-width:2px}
+  .dice{width:39px;height:39px;font-size:25px}
+  .player-name{font-size:12px}
+  .player-sub{font-size:10px}
+  header h1{font-size:22px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎲 PlayZoneHub Ludo</h1>
+  <p>Classic Ludo • 3D Dice • Human vs Computer</p>
+</header>
+
+<div class="controls">
+  <select id="mode">
+    <option value="computer">Human vs Computer</option>
+    <option value="local">Local Multiplayer</option>
+  </select>
+  <select id="count">
+    <option value="2">2 Players</option>
+    <option value="3">3 Players</option>
+    <option value="4" selected>4 Players</option>
+  </select>
+  <button onclick="newGame()">New Game</button>
+</div>
+
+<div id="status">Loading game...</div>
+
+<div class="game-layout">
+  <div class="dice-box" id="red-box" onclick="rollDice(0)">
+    <div class="player-info">
+      <div class="player-name">🔴 RED</div>
+      <div class="player-sub" id="sub-0">Player 1</div>
+    </div>
+    <div class="dice" id="dice-0">⚀</div>
+  </div>
+
+  <div class="dice-box" id="green-box" onclick="rollDice(1)">
+    <div class="player-info">
+      <div class="player-name">🟢 GREEN</div>
+      <div class="player-sub" id="sub-1">Player 2</div>
+    </div>
+    <div class="dice" id="dice-1">⚀</div>
+  </div>
+
+  <div id="board-wrap">
+    <canvas id="board" width="600" height="600"></canvas>
+  </div>
+
+  <div class="dice-box" id="blue-box" onclick="rollDice(3)">
+    <div class="player-info">
+      <div class="player-name">🔵 BLUE</div>
+      <div class="player-sub" id="sub-3">Player 4</div>
+    </div>
+    <div class="dice" id="dice-3">⚀</div>
+  </div>
+
+  <div class="dice-box" id="yellow-box" onclick="rollDice(2)">
+    <div class="player-info">
+      <div class="player-name">🟡 YELLOW</div>
+      <div class="player-sub" id="sub-2">Player 3</div>
+    </div>
+    <div class="dice" id="dice-2">⚀</div>
+  </div>
+</div>
+
+<div class="bottom">
+  <button class="primary" onclick="newGame()">🔄 Restart Game</button>
+  <button onclick="toggleSound()" id="soundBtn">🔊 Sound ON</button>
+</div>
+<div id="message">Tap your coloured dice box to roll.</div>
+<div class="legend">Six to start • Capture opponents • Reach home to win</div>
+
+<script>
+const canvas=document.getElementById("board");
+const ctx=canvas.getContext("2d");
+const SIZE=600,CELL=40;
+const COLORS=["#e83232","#19b966","#f5c629","#2588ed"];
+const LIGHT=["#ffb8b8","#b4f1ce","#fff0a4","#b8dcff"];
+const DARK=["#a51010","#08783e","#a87800","#104f9e"];
+const NAMES=["RED","GREEN","YELLOW","BLUE"];
+const DICE=["⚀","⚁","⚂","⚃","⚄","⚅"];
+const SAFE=[0,8,13,21,26,34,39,47];
+
+const path=[
+[6,1],[6,2],[6,3],[6,4],[6,5],
+[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],
+[0,7],[0,8],[1,8],[2,8],[3,8],[4,8],[5,8],
+[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],
+[7,14],[8,14],[8,13],[8,12],[8,11],[8,10],[8,9],
+[9,8],[10,8],[11,8],[12,8],[13,8],[14,8],
+[14,7],[14,6],[13,6],[12,6],[11,6],[10,6],[9,6],
+[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
+[7,0],[6,0]
+];
+
+const homeLanes=[
+[[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],
+[[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
+[[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]],
+[[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]]
+];
+
+const bases=[
+[[1.5,1.5],[4,1.5],[1.5,4],[4,4]],
+[[10.5,1.5],[13,1.5],[10.5,4],[13,4]],
+[[10.5,10.5],[13,10.5],[10.5,13],[13,13]],
+[[1.5,10.5],[4,10.5],[1.5,13],[4,13]]
+];
+
+const starts=[0,13,26,39];
+const state={
+  mode:"computer",count:2,active:[0,1],turn:0,
+  dice:0,rolled:false,finished:false,winner:-1,
+  tokens:[],sound:true,rolling:false
+};
+
+function freshTokens(){
+  return Array.from({length:4},()=>Array.from({length:4},()=>-1));
+}
+function save(){
+  try{localStorage.setItem("pzh_ludo_3d_v3",JSON.stringify(state));}catch(e){}
+}
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem("pzh_ludo_3d_v3"));
+    if(d&&d.tokens&&d.tokens.length===4){
+      Object.assign(state,d);
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+function current(){return state.active[state.turn]}
+function isAI(p){return state.mode==="computer"&&p===1}
+function say(t){
+  document.getElementById("status").textContent=t;
+}
+function note(t){
+  document.getElementById("message").textContent=t;
+}
+function beep(freq=500,duration=.08){
+  if(!state.sound)return;
+  try{
+    const a=new(window.AudioContext||window.webkitAudioContext)();
+    const o=a.createOscillator(),g=a.createGain();
+    o.frequency.value=freq;o.connect(g);g.connect(a.destination);
+    g.gain.value=.06;o.start();o.stop(a.currentTime+duration);
+    o.onended=()=>a.close();
+  }catch(e){}
+}
+function updateDice(){
+  for(let p=0;p<4;p++){
+    document.getElementById("dice-"+p).textContent=state.dice?DICE[state.dice-1]:"⚀";
+  }
+}
+function updateUI(){
+  for(let p=0;p<4;p++){
+    const box=document.getElementById(["red-box","green-box","yellow-box","blue-box"][p]);
+    const active=state.active[state.turn]===p&&!state.finished;
+    box.classList.toggle("active",active);
+    box.classList.toggle("disabled",!state.active.includes(p)||isAI(p)||state.finished);
+    document.getElementById("sub-"+p).textContent=
+      !state.active.includes(p)?"Not playing":
+      (isAI(p)?"Computer":(state.mode==="computer"?"You":"Player "+(state.active.indexOf(p)+1)))+
+      (active?" • YOUR TURN":"");
+  }
+  updateDice();
+  draw();
+}
+function newGame(){
+  state.mode=document.getElementById("mode").value;
+  state.count=state.mode==="computer"?2:Number(document.getElementById("count").value);
+  state.active=state.mode==="computer"?[0,1]:[0,1,2,3].slice(0,state.count);
+  state.turn=0;state.dice=0;state.rolled=false;
+  state.finished=false;state.winner=-1;state.tokens=freshTokens();
+  state.rolling=false;
+  say("🔴 RED player's turn. Roll a 6 to start.");
+  note("Tap the active player's dice box to roll.");
+  save();updateUI();
+}
+function getMoves(p,d){
+  const moves=[];
+  for(let t=0;t<4;t++){
+    const pos=state.tokens[p][t];
+    if(pos===57)continue;
+    if(pos===-1){if(d===6)moves.push(t);}
+    else if(pos+d<=56)moves.push(t);
+  }
+  return moves;
+}
+function rollDice(p){
+  if(state.finished||state.rolling||state.rolled||p!==current()||isAI(p))return;
+  state.rolling=true;
+  const el=document.getElementById("dice-"+p);
+  el.classList.remove("rolling");void el.offsetWidth;el.classList.add("rolling");
+  beep(350,.05);
+  let count=0;
+  const timer=setInterval(()=>{
+    state.dice=1+Math.floor(Math.random()*6);
+    updateDice();count++;
+    if(count>=9){
+      clearInterval(timer);
+      state.dice=1+Math.floor(Math.random()*6);
+      state.rolling=false;state.rolled=true;
+      beep(650,.12);
+      const moves=getMoves(p,state.dice);
+      say(NAMES[p]+" rolled "+state.dice+".");
+      if(!moves.length){
+        note(state.dice===6?"No available move.":"No move possible. Turn passes.");
+        save();updateUI();
+        setTimeout(passTurn,900);
+      }else{
+        note("Choose a highlighted token to move.");
+        save();updateUI();
+        if(isAI(p))setTimeout(aiMove,650);
+      }
+    }
+  },65);
+}
+function passTurn(){
+  if(state.finished)return;
+  state.rolled=false;state.dice=0;
+  if(current()===0||state.active[state.turn]!==0){}
+  state.turn=(state.turn+1)%state.active.length;
+  say(NAMES[current()]+"'s turn.");
+  save();updateUI();
+  if(isAI(current()))setTimeout(()=>rollAI(),700);
+}
+function rollAI(){
+  if(state.finished||!isAI(current())||state.rolled)return;
+  state.rolling=true;
+  let n=0;
+  const timer=setInterval(()=>{
+    state.dice=1+Math.floor(Math.random()*6);
+    updateDice();n++;
+    if(n>=8){
+      clearInterval(timer);state.rolling=false;state.rolled=true;
+      const moves=getMoves(current(),state.dice);
+      say("🤖 Computer rolled "+state.dice+".");
+      save();updateUI();
+      if(!moves.length)setTimeout(passTurn,800);
+      else setTimeout(aiMove,650);
+    }
+  },70);
+}
+function aiMove(){
+  const p=current(),moves=getMoves(p,state.dice);
+  if(!moves.length){passTurn();return;}
+  let chosen=moves[0],best=-999;
+  moves.forEach(t=>{
+    const pos=state.tokens[p][t];
+    let score=0;
+    if(pos===-1)score=30;
+    else score=pos;
+    if(pos>=0&&pos<51){
+      const landing=(starts[p]+pos+state.dice)%52;
+      for(let op of state.active){
+        if(op===p)continue;
+        state.tokens[op].forEach(x=>{
+          if(x>=0&&x<52&&(starts[op]+x)%52===landing&&!SAFE.includes(landing))score+=45;
+        });
+      }
+    }
+    if(pos>=0&&pos+state.dice>=52)score+=25;
+    if(score>best){best=score;chosen=t;}
+  });
+  moveToken(p,chosen);
+}
+function moveToken(p,t){
+  const old=state.tokens[p][t];
+  if(old===-1)state.tokens[p][t]=0;
+  else state.tokens[p][t]+=state.dice;
+  const now=state.tokens[p][t];
+  if(now>=0&&now<52){
+    const landing=(starts[p]+now)%52;
+    if(!SAFE.includes(landing)){
+      for(let op of state.active){
+        if(op===p)continue;
+        for(let ot=0;ot<4;ot++){
+          const other=state.tokens[op][ot];
+          if(other>=0&&other<52&&(starts[op]+other)%52===landing){
+            state.tokens[op][ot]=-1;
+            note("💥 "+NAMES[p]+" captured "+NAMES[op]+" token!");
+            beep(220,.2);
+          }
+        }
+      }
+    }
+  }
+  beep(700,.08);
+  if(state.tokens[p].every(x=>x===57)){
+    state.finished=true;state.winner=p;
+    say("🏆 "+NAMES[p]+" WINS!");
+    note("Congratulations! Game completed.");
+  }else if(state.dice===6){
+    state.rolled=false;state.dice=0;
+    say(NAMES[p]+" rolled a 6 and gets another turn!");
+    note("Roll again.");
+  }else{
+    state.rolled=false;state.dice=0;
+    state.turn=(state.turn+1)%state.active.length;
+    say(NAMES[current()]+"'s turn.");
+  }
+  save();updateUI();
+  if(!state.finished&&isAI(current()))setTimeout(rollAI,700);
+}
+function cellCenter(rc){
+  return [(rc[1]+.5)*CELL,(rc[0]+.5)*CELL];
+}
+function pawn(p,t){
+  const pos=state.tokens[p][t];
+  if(pos===57)return [300,300];
+  if(pos===-1){
+    const b=bases[p][t];
+    return [(b[0]+.5)*CELL,(b[1]+.5)*CELL];
+  }
+  if(pos>=52)return cellCenter(homeLanes[p][pos-52]);
+  return cellCenter(path[(starts[p]+pos)%52]);
+}
+function roundRect(x,y,w,h,r,color){
+  ctx.fillStyle=color;ctx.beginPath();
+  ctx.roundRect(x,y,w,h,r);ctx.fill();
+}
+function drawBoard(){
+  ctx.clearRect(0,0,600,600);
+  ctx.fillStyle="#f8fafc";ctx.fillRect(0,0,600,600);
+  const zones=[
+    [0,0,240,240,0],[360,0,240,240,1],
+    [360,360,240,240,2],[0,360,240,240,3]
+  ];
+  zones.forEach(([x,y,w,h,p])=>{
+    ctx.fillStyle=LIGHT[p];ctx.fillRect(x,y,w,h);
+    roundRect(x+40,y+40,160,160,14,COLORS[p]);
+    for(let i=0;i<4;i++){
+      const xx=x+70+(i%2)*70,yy=y+70+Math.floor(i/2)*70;
+      ctx.beginPath();ctx.arc(xx,yy,22,0,Math.PI*2);
+      ctx.fillStyle="#fff";ctx.fill();
+      ctx.strokeStyle=DARK[p];ctx.lineWidth=3;ctx.stroke();
+    }
+  });
+  path.forEach((rc,i)=>{
+    const [x,y]=cellCenter(rc);
+    ctx.fillStyle="#fff";ctx.fillRect(rc[1]*CELL,rc[0]*CELL,CELL,CELL);
+    ctx.strokeStyle="#c2cbd5";ctx.lineWidth=1;
+    ctx.strokeRect(rc[1]*CELL,rc[0]*CELL,CELL,CELL);
+    if(SAFE.includes(i)){
+      ctx.fillStyle="#f7d45c";ctx.beginPath();
+      ctx.arc(x,y,11,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#9b7313";ctx.font="bold 14px Arial";
+      ctx.textAlign="center";ctx.fillText("★",x,y+5);
+    }
+  });
+  homeLanes.forEach((lane,p)=>{
+    lane.forEach(rc=>{
+      ctx.fillStyle=LIGHT[p];
+      ctx.fillRect(rc[1]*CELL,rc[0]*CELL,CELL,CELL);
+      ctx.strokeStyle="#fff";ctx.strokeRect(rc[1]*CELL,rc[0]*CELL,CELL,CELL);
+    });
+  });
+  // Centre finish triangles
+  ctx.beginPath();ctx.moveTo(240,240);ctx.lineTo(360,240);ctx.lineTo(300,300);
+  ctx.closePath();ctx.fillStyle=COLORS[0];ctx.fill();
+  ctx.beginPath();ctx.moveTo(360,240);ctx.lineTo(360,360);ctx.lineTo(300,300);
+  ctx.closePath();ctx.fillStyle=COLORS[1];ctx.fill();
+  ctx.beginPath();ctx.moveTo(360,360);ctx.lineTo(240,360);ctx.lineTo(300,300);
+  ctx.closePath();ctx.fillStyle=COLORS[2];ctx.fill();
+  ctx.beginPath();ctx.moveTo(240,360);ctx.lineTo(240,240);ctx.lineTo(300,300);
+  ctx.closePath();ctx.fillStyle=COLORS[3];ctx.fill();
+  ctx.beginPath();ctx.arc(300,300,10,0,Math.PI*2);
+  ctx.fillStyle="#fff";ctx.fill();
+}
+function drawPawn(x,y,color,selected=false){
+  ctx.save();
+  // shadow
+  ctx.beginPath();ctx.ellipse(x,y+12,13,6,0,0,Math.PI*2);
+  ctx.fillStyle="#0005";ctx.fill();
+  // base
+  const grad=ctx.createLinearGradient(x-12,y+5,x+12,y+15);
+  grad.addColorStop(0,"#fff");grad.addColorStop(.25,color);
+  grad.addColorStop(1,"#333");
+  ctx.fillStyle=grad;ctx.beginPath();
+  ctx.ellipse(x,y+8,13,7,0,0,Math.PI*2);ctx.fill();
+  // pawn body
+  ctx.beginPath();ctx.moveTo(x-9,y+7);
+  ctx.quadraticCurveTo(x-6,y-3,x-5,y-9);
+  ctx.quadraticCurveTo(x,y-15,x+5,y-9);
+  ctx.quadraticCurveTo(x+6,y-3,x+9,y+7);
+  ctx.closePath();
+  const body=ctx.createLinearGradient(x-10,y,x+10,y);
+  body.addColorStop(0,"#333");body.addColorStop(.28,color);
+  body.addColorStop(.72,color);body.addColorStop(1,"#333");
+  ctx.fillStyle=body;ctx.fill();
+  // head
+  const head=ctx.createRadialGradient(x-4,y-18,2,x,y-15,10);
+  head.addColorStop(0,"#fff");head.addColorStop(.3,color);
+  head.addColorStop(1,"#333");
+  ctx.fillStyle=head;ctx.beginPath();
+  ctx.arc(x,y-15,9,0,Math.PI*2);ctx.fill();
+  if(selected){
+    ctx.strokeStyle="#fff";ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(x,y-4,20,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.restore();
+}
+function draw(){
+  drawBoard();
+  const offsets={};
+  for(let p=0;p<4;p++){
+    for(let t=0;t<4;t++){
+      const pos=state.tokens[p][t];
+      if(pos===57)continue;
+      let [x,y]=pawn(p,t);
+      const key=Math.round(x)+","+Math.round(y);
+      const stack=offsets[key]||0;offsets[key]=stack+1;
+      if(stack){x+=(stack%2?9:-9);y+=Math.ceil(stack/2)*7;}
+      const moves=state.rolled&&p===current()?getMoves(p,state.dice):[];
+      drawPawn(x,y,COLORS[p],moves.includes(t));
+    }
+  }
+  // Finished tokens shown in centre
+  for(let p=0;p<4;p++){
+    state.tokens[p].forEach((v,t)=>{
+      if(v===57){
+        drawPawn(300+(p%2)*19-9,300+Math.floor(p/2)*19-9,COLORS[p]);
+      }
+    });
+  }
+}
+function canvasClick(e){
+  if(!state.rolled||state.finished||isAI(current()))return;
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*600/rect.width;
+  const y=(e.clientY-rect.top)*600/rect.height;
+  const p=current(),moves=getMoves(p,state.dice);
+  let chosen=-1,dist=Infinity;
+  moves.forEach(t=>{
+    const [px,py]=pawn(p,t);
+    const d=Math.hypot(x-px,y-py);
+    if(d<dist){dist=d;chosen=t;}
+  });
+  if(chosen>=0&&dist<35)moveToken(p,chosen);
+  else note("Tap one of the highlighted tokens.");
+}
+canvas.addEventListener("click",canvasClick);
+function toggleSound(){
+  state.sound=!state.sound;
+  document.getElementById("soundBtn").textContent=state.sound?"🔊 Sound ON":"🔇 Sound OFF";
+  save();
+}
+function startSavedGame(){
+  if(!load()){
+    state.tokens=freshTokens();
+    state.active=[0,1,2,3];state.count=4;
+  }
+  document.getElementById("mode").value=state.mode||"computer";
+  document.getElementById("count").value=state.count||4;
+  say(state.finished?NAMES[state.winner]+" won the game!":NAMES[current()]+"'s turn.");
+  updateUI();
+  if(isAI(current())&&!state.rolled&&!state.finished)setTimeout(rollAI,700);
+}
+startSavedGame();
+</script>
+</body>
+</html>
